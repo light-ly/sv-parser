@@ -15,7 +15,7 @@ pub use sv_parser_syntaxtree::*;
 
 pub struct SyntaxTree {
     node: AnyNode,
-    text: PreprocessedText,
+    pub text: PreprocessedText,
 }
 
 impl SyntaxTree {
