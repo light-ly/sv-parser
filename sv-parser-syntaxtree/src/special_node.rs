@@ -56,3 +56,16 @@ impl<T, U> List<T, U> {
         ret
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Node)]
+pub enum NeedGetLocate {
+    ParamAssignments(ListOfParameterAssignments),
+    PortConnections(ListOfPortConnections),
+    GateInstantiation(GateInstantiation),
+}
+
+#[derive(Clone, Debug, PartialEq, Node)]
+pub enum NeedParseExpression {
+    Port(PackedDimensionRange),
+    Parameter(ConstantMintypmaxExpression),
+}
