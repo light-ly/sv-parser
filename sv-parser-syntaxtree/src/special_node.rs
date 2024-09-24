@@ -68,4 +68,5 @@ pub enum NeedGetLocate {
 pub enum NeedParseExpression {
     Port(PackedDimensionRange),
     Parameter(ConstantMintypmaxExpression),
+    Expression(Expression),
 }
