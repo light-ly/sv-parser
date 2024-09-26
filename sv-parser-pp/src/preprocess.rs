@@ -1023,6 +1023,127 @@ fn resolve_text_macro_usage<T: AsRef<Path>, U: AsRef<Path>>(
     }
 }
 
+fn resolve_text_macro_usage_retain_error<T: AsRef<Path>, U: AsRef<Path>>(
+    x: &TextMacroUsage,
+    s: &str,
+    path: T,
+    defines: &Defines,
+    include_paths: &[U],
+    strip_comments: bool,
+    resolve_depth: usize,
+) -> Result<Option<(String, Option<(PathBuf, Range)>, Defines)>, Error> {
+    let (_, ref name, ref args) = x.nodes;
+    let id = identifier((&name.nodes.0).into(), &s).unwrap();
+
+    if resolve_depth > RECURSIVE_LIMIT {
+        return Err(Error::ExceedRecursiveLimit);
+    }
+
+    let mut args_str = String::from("");
+    let mut actual_args = Vec::new();
+    let no_args = args.is_none();
+    if let Some(args) = args {
+        args_str.push_str(&get_str((&args.nodes.0).into(), s));
+        args_str.push_str(&get_str((&args.nodes.1).into(), s));
+        args_str.push_str(&get_str((&args.nodes.2).into(), s));
+
+        let (_, ref args, _) = args.nodes;
+        let (ref args,) = args.nodes;
+        for arg in args.contents() {
+            if let Some(arg) = arg {
+                let (ref arg,) = arg.nodes;
+                let arg = arg.str(&s).trim_end();
+                actual_args.push(Some(arg));
+            } else {
+                actual_args.push(None);
+            }
+        }
+    }
+
+    let define = defines.get(&id);
+    if let Some(Some(define)) = define {
+        let mut arg_map = HashMap::new();
+
+        if !define.arguments.is_empty() && no_args {
+            return Err(Error::DefineNoArgs(define.identifier.clone()));
+        }
+
+        for (i, (arg, default)) in define.arguments.iter().enumerate() {
+            let value = match actual_args.get(i) {
+                Some(Some(actual_arg)) => *actual_arg,
+                Some(None) => {
+                    if let Some(default) = default {
+                        default
+                    } else {
+                        ""
+                    }
+                }
+                None => {
+                    if let Some(default) = default {
+                        default
+                    } else {
+                        return Err(Error::DefineArgNotFound(String::from(arg)));
+                    }
+                }
+            };
+            arg_map.insert(String::from(arg), value);
+        }
+
+        // restore () for textmacro without arguments
+        let paren = if define.arguments.is_empty() {
+            Some(args_str)
+        } else {
+            None
+        };
+
+        if let Some(ref text) = define.text {
+            let mut replaced = String::from("");
+            for text in split_text(&text.text) {
+                if let Some(value) = arg_map.get(&text) {
+                    replaced.push_str(*value);
+                } else {
+                    replaced.push_str(
+                        &text
+                            .replace("``", "")          // Argument substitution.
+                            .replace("`\\`\"", "\\\"")  // Escaped backslash.
+                            .replace("`\"", "\"")       // Escaped quote.
+                            .replace("\\\n", "\n")      // Line continuation (Unix).
+                            .replace("\\\r\n", "\r\n")  // Line continuation (Windows).
+                            .replace("\\\r", "\r"),     // Line continuation (old Mac).
+                    );
+                }
+            }
+
+            if let Some(paren) = paren {
+                replaced.push_str(&paren);
+            }
+
+            let (replaced, new_defines) = preprocess_str(
+                &replaced,
+                path.as_ref(),
+                &defines,
+                include_paths,
+                false,
+                strip_comments,
+                resolve_depth,
+                0, // include_depth
+            )?;
+            Ok(Some((
+                String::from(replaced.text()),
+                text.origin.clone(),
+                new_defines,
+            )))
+        } else {
+            Ok(None)
+        }
+    } else if define.is_some() {
+        Ok(None)
+    } else {
+        Err(Error::DefineNotFound(id))
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

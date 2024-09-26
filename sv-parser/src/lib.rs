@@ -12,6 +12,7 @@ pub use sv_parser_pp::preprocess::{
     preprocess, preprocess_str, Define, DefineText, Defines, PreprocessedText,
 };
 pub use sv_parser_syntaxtree::*;
+pub use sv_parser_pp::range as sv_parser_pp_range;
 
 pub struct SyntaxTree {
     node: AnyNode,
