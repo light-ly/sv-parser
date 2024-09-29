@@ -1023,6 +1023,7 @@ fn resolve_text_macro_usage<T: AsRef<Path>, U: AsRef<Path>>(
     }
 }
 
+#[allow(unused)]
 fn resolve_text_macro_usage_retain_error<T: AsRef<Path>, U: AsRef<Path>>(
     x: &TextMacroUsage,
     s: &str,
